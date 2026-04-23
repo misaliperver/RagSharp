@@ -1,0 +1,6 @@
+@Decisionman_HostAddress = http://localhost:5037
+
+GET {{Decisionman_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

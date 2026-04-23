@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decisionman RAG - Yapay Zeka Asistanı</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg-body: #f3f4f6;
+            --bg-sidebar: #111827;
+            --sidebar-text: #9CA3AF;
+            --sidebar-text-hover: #F9FAFB;
+            --border-color: #E5E7EB;
+            --panel-bg: #FFFFFF;
+            --chat-user-bg: #EEF2FF;
+            --chat-bot-bg: #FFFFFF;
+            --text-main: #1F2937;
+            --text-muted: #6B7280;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            color: var(--text-main);
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #1F2937;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            color: white;
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #1F2937;
+        }
+        .sidebar-header i { color: var(--primary); }
+
+        .topics-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 10px;
+        }
+
+        .topic-item {
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--sidebar-text);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .topic-item:hover, .topic-item.active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--sidebar-text-hover);
+        }
+
+        .topic-item.active {
+            border-left: 4px solid var(--primary);
+        }
+
+        .sidebar-bottom {
+            padding: 20px;
+            border-top: 1px solid #1F2937;
+        }
+
+        .new-topic-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .new-topic-form input {
+            background: #1F2937;
+            border: 1px solid #374151;
+            color: white;
+            padding: 10px 12px;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .new-topic-form input:focus {
+            border-color: var(--primary);
+        }
+
+        .new-topic-form button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .new-topic-form button:hover {
+            background: var(--primary-hover);
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-body);
+            position: relative;
+        }
+
+        /* Top Header */
+        .main-header {
+            background: var(--panel-bg);
+            padding: 16px 32px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        .topic-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .empty-state-topic {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+        }
+
+        .empty-state-topic i {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            color: #D1D5DB;
+        }
+
+        /* Files Section */
+        .files-section {
+            background: var(--panel-bg);
+            padding: 16px 32px;
+            border-bottom: 1px solid var(--border-color);
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .files-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+
+        .file-upload-btn {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+        .file-upload-btn:hover { background: #F9FAFB; border-color: var(--primary); color: var(--primary); }
+
+        .files-list {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .file-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #F3F4F6;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        
+        .file-pill:hover { border-color: var(--primary); }
+        .file-pill.selected { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        .chat-message {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            max-width: 850px;
+            margin-left: auto;
+            margin-right: auto;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .user-message .chat-avatar { background: var(--primary); color: white; }
+        .bot-message .chat-avatar { background: #1F2937; color: white; }
+
+        .message-content {
+            background: var(--panel-bg);
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            line-height: 1.6;
+            flex: 1;
+            font-size: 0.95rem;
+        }
+
+        .user-message .message-content {
+            background: var(--chat-user-bg);
+        }
+
+        /* Markdown Styles in Bot Message */
+        .bot-message .message-content h1, 
+        .bot-message .message-content h2, 
+        .bot-message .message-content h3 { margin-top: 1em; margin-bottom: 0.5em; color: #111827; }
+        .bot-message .message-content p { margin-bottom: 1em; }
+        .bot-message .message-content p:last-child { margin-bottom: 0; }
+        .bot-message .message-content pre { background: #1F2937; color: #E5E7EB; padding: 12px; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; }
+        .bot-message .message-content code { font-family: monospace; background: #F3F4F6; padding: 2px 4px; border-radius: 4px; color: #EF4444; }
+        .bot-message .message-content pre code { background: none; color: inherit; padding: 0; }
+        .bot-message .message-content ul, 
+        .bot-message .message-content ol { padding-left: 1.5em; margin-bottom: 1em; }
+
+        /* Input Area */
+        .chat-input-wrapper {
+            padding: 20px 32px;
+            background: var(--bg-body);
+        }
+
+        .chat-input-container {
+            max-width: 850px;
+            margin: 0 auto;
+            position: relative;
+            background: var(--panel-bg);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: flex-end;
+            padding: 12px 16px;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input-container:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+        }
+
+        .chat-input-container textarea {
+            flex: 1;
+            border: none;
+            outline: none;
+            resize: none;
+            max-height: 200px;
+            padding: 8px 0;
+            font-size: 1rem;
+            background: transparent;
+            min-height: 40px;
+            line-height: 1.5;
+            color: var(--text-main);
+        }
+
+        .send-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 12px;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .send-btn:disabled { background: #D1D5DB; cursor: not-allowed; transform: none; }
+
+        /* Animations & Modals */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Hidden File Input */
+        #hiddenFileInput { display: none; }
+
+        /* Overlay loader for file upload */
+        .upload-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            display: none;
+        }
+        .upload-overlay i { font-size: 3rem; color: var(--primary); margin-bottom: 16px; animation: bounce 1s infinite alternate; }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: var(--panel-bg);
+            width: 400px;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header i { cursor: pointer; color: var(--text-muted); }
+        .modal-body label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem; }
+        .modal-body input {
+            width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); outline: none; margin-bottom: 16px;
+            transition: border-color 0.2s;
+        }
+        .modal-body input:focus { border-color: var(--primary); }
+
+        .modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
+        .btn-secondary { background: #E5E7EB; color: #374151; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s; }
+        .btn-secondary:hover { background: #D1D5DB; }
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s; }
+        .btn-primary:hover { background: var(--primary-hover); }
+
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fa-solid fa-brain"></i>
+            Decisionman AI
+        </div>
+        
+        <div class="topics-list" id="topicsList">
+            <div style="color: #6B7280; text-align:center; margin-top:20px; font-size:0.9rem;">Yükleniyor...</div>
+        </div>
+
+        <div class="sidebar-bottom">
+            <div class="new-topic-form" style="margin-bottom: 20px;">
+                <input type="text" id="newTopicInput" placeholder="Yeni Konu Adı..." autocomplete="off">
+                <button onclick="createTopic()">
+                    <i class="fa-solid fa-plus"></i> Konu Oluştur
+                </button>
+            </div>
+            <div style="border-top: 1px solid #1F2937; padding-top: 20px;">
+                <button onclick="openSettings()" style="width:100%; background: transparent; border: 1px solid #374151; color: var(--sidebar-text); padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 500; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fa-solid fa-gear"></i> Ayarlar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        
+        <div id="emptyState" class="empty-state-topic">
+            <i class="fa-regular fa-comments"></i>
+            <h3>Hoş geldiniz!</h3>
+            <p style="margin-top:8px;">Başlamak için soldan bir konu seçin veya yeni oluşturun.</p>
+        </div>
+
+        <div id="activeTopicContainer" style="display: none; flex-direction: column; height: 100%;">
+            <!-- Header -->
+            <div class="main-header">
+                <div class="topic-title" id="currentTopicTitle">Konu Adı</div>
+                <button class="file-upload-btn" onclick="document.getElementById('hiddenFileInput').click()">
+                    <i class="fa-solid fa-paperclip"></i> Doküman Ekle
+                </button>
+                <input type="file" id="hiddenFileInput" accept=".pdf, .xlsx, .xls" onchange="uploadSelectedFile()">
+            </div>
+
+            <!-- Upload Overlay -->
+            <div class="upload-overlay" id="uploadOverlay">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <h3 style="color: #1F2937;">Belge İşleniyor...</h3>
+                <p style="color: #6B7280; font-size:0.9rem; margin-top:8px;">Vektörlere dönüştürülüyor, lütfen bekleyin.</p>
+            </div>
+
+            <!-- Dynamic File Checkboxes -->
+            <div class="files-section" id="filesSection">
+                <div class="files-header">
+                    <span>Sorguya Dahil Edilecek Belgeler</span>
+                    <small style="color:var(--text-muted); font-weight:normal;">(Bağlam Filtresi)</small>
+                </div>
+                <div class="files-list" id="filesList">
+                    <!-- Pills injected via JS -->
+                </div>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="chat-area" id="chatArea">
+                <div style="text-align:center; color: #9CA3AF; margin-top: 40px; font-size:0.9rem;">
+                    Sorularınız yukarıda seçili olan belgeler taranarak cevaplanacaktır. 
+                </div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-wrapper">
+                <div class="chat-input-container">
+                    <textarea id="questionInput" 
+                              placeholder="Dokümanlar hakkında bir soru sorun..." 
+                              rows="1" 
+                              oninput="autoResizeTextarea(this)"
+                              onkeydown="handleEnter(event)"></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="askQuestion()">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+<div style="text-align: center; margin-top: 8px; font-size: 0.75rem; color: #9CA3AF;">Model: Gemini 2.5 Flash ile RAG (Retrieval-Augmented Generation)</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span><i class="fa-solid fa-gear"></i> Sistem Ayarları</span>
+                <i class="fa-solid fa-xmark" onclick="closeSettings()"></i>
+            </div>
+            <div class="modal-body">
+                <label for="geminiKeyInput">Gemini API Anahtarı</label>
+                <input type="password" id="geminiKeyInput" placeholder="AIzaSy...">
+                <small id="settingsStatus" style="color: #10B981; display:none; margin-bottom: 12px; font-weight:500;">Kaydedildi!</small>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSettings()">Kapat</button>
+                <button class="btn-primary" onclick="saveSettings()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiUrl = '/api/rag';
+        let currentTopicId = null;
+        let selectedDocIds = new Set();
+        
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTopics();
+        });
+
+        // --- UI Interactions ---
+        function autoResizeTextarea(el) {
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight) + 'px';
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                askQuestion();
+            }
+        }
+
+        function scrollToBottom() {
+            const chatArea = document.getElementById('chatArea');
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        // --- API Calls ---
+        async function loadTopics() {
+            try {
+                const res = await fetch(`${apiUrl}/topics`);
+                const topics = await res.json();
+                const list = document.getElementById('topicsList');
+                list.innerHTML = '';
+                
+                if(topics.length === 0) {
+                    list.innerHTML = '<div style="color: #6B7280; text-align:center; margin-top:20px; font-size:0.9rem;">Konu yok</div>';
+                    return;
+                }
+
+                topics.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = `topic-item ${t.id === currentTopicId ? 'active' : ''}`;
+                    div.innerHTML = `<i class="fa-regular fa-folder"></i> <span>${t.name}</span>`;
+                    div.onclick = () => selectTopic(t.id, t.name, div);
+                    list.appendChild(div);
+                });
+            } catch (err) {
+                console.error("Konular yüklenemedi", err);
+            }
+        }
+
+        async function createTopic() {
+            const input = document.getElementById('newTopicInput');
+            const name = input.value.trim();
+            if (!name) return;
+            
+            try {
+                const res = await fetch(`${apiUrl}/topics`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if(res.ok) {
+                    input.value = '';
+                    const newTopic = await res.json();
+                    await loadTopics();
+                    // Select specifically the newly created one
+                    const items = document.querySelectorAll('.topic-item');
+                    selectTopic(newTopic.id, newTopic.name, items[items.length-1]);
+                }
+            } catch (err) {
+                console.error("Oluşturulamadı", err);
+            }
+        }
+
+        async function selectTopic(id, name, element) {
+            currentTopicId = id;
+            
+            // Update UI Active State
+            document.querySelectorAll('.topic-item').forEach(el => el.classList.remove('active'));
+            if(element) element.classList.add('active');
+
+            // Toggle Main Areas
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('activeTopicContainer').style.display = 'flex';
+            document.getElementById('currentTopicTitle').innerText = name;
+            
+            // Clear Chat
+            document.getElementById('chatArea').innerHTML = `
+                <div style="text-align:center; color: #9CA3AF; margin-top: 40px; font-size:0.9rem;">
+                    Sorularınız yukarıda seçili olan belgeler taranarak cevaplanacaktır. 
+                </div>`;
+
+            // Load Files and Chat History
+            await loadTopicDocuments(id);
+            await loadTopicChatHistory(id);
+        }
+
+        async function loadTopicChatHistory(topicId) {
+            const chatArea = document.getElementById('chatArea');
+            chatArea.innerHTML = ''; // Temizle
+
+            try {
+                const res = await fetch(`${apiUrl}/topics/${topicId}/chat`);
+                if (res.ok) {
+                    const history = await res.json();
+                    
+                    if(history.length === 0) {
+                        chatArea.innerHTML = `
+                        <div style="text-align:center; color: #9CA3AF; margin-top: 40px; font-size:0.9rem;">
+                            Sorularınız seçili olan belgeler taranarak cevaplanacaktır. 
+                        </div>`;
+                        return;
+                    }
+
+                    history.forEach(msg => {
+                        addMessageToChat(msg.role, msg.content, false);
+                    });
+                    scrollToBottom();
+                }
+            } catch (err) {
+                console.error("Geçmiş yüklenemedi", err);
+            }
+        }
+
+        async function loadTopicDocuments(id) {
+            const section = document.getElementById('filesSection');
+            const list = document.getElementById('filesList');
+            selectedDocIds.clear();
+
+            try {
+                const res = await fetch(`${apiUrl}/topics/${id}/documents`);
+                if (res.ok) {
+                    const docs = await res.json();
+                    list.innerHTML = '';
+                    
+                    if (docs.length > 0) {
+                        section.style.display = 'flex';
+                        docs.forEach(doc => {
+                            selectedDocIds.add(doc.id); // All selected by default
+                            const pill = document.createElement('div');
+                            pill.className = 'file-pill selected';
+                            pill.innerHTML = `<i class="fa-solid fa-file-lines"></i> ${doc.fileName}`;
+                            pill.onclick = () => toggleFileSelection(doc.id, pill);
+                            list.appendChild(pill);
+                        });
+                    } else {
+                        section.style.display = 'none';
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function toggleFileSelection(docId, element) {
+            if(selectedDocIds.has(docId)) {
+                selectedDocIds.delete(docId);
+                element.classList.remove('selected');
+            } else {
+                selectedDocIds.add(docId);
+                element.classList.add('selected');
+            }
+        }
+
+        async function uploadSelectedFile() {
+            const fileInput = document.getElementById('hiddenFileInput');
+            if(!fileInput.files[0] || !currentTopicId) return;
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const overlay = document.getElementById('uploadOverlay');
+            overlay.style.display = 'flex';
+
+            try {
+                const res = await fetch(`${apiUrl}/topics/${currentTopicId}/documents`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    await loadTopicDocuments(currentTopicId);
+                    await loadTopicChatHistory(currentTopicId);
+                } else {
+                    addMessageToChat('gemini', `Dosya yükleme hatası oluştu.`);
+                }
+            } catch (err) {
+                addMessageToChat('gemini', `Sunucu bağlantı hatası.`);
+            } finally {
+                overlay.style.display = 'none';
+                fileInput.value = ''; // reset
+            }
+        }
+
+        async function askQuestion() {
+            if(!currentTopicId) return;
+            const input = document.getElementById('questionInput');
+            const question = input.value.trim();
+            if(!question) return;
+
+            // UI updating
+            input.value = '';
+            input.style.height = '40px'; 
+            
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="loader"></span>';
+
+            addMessageToChat('user', question);
+
+            try {
+                const res = await fetch(`${apiUrl}/topics/${currentTopicId}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        question: question, 
+                        documentIds: Array.from(selectedDocIds) // convert Set to Array
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    addMessageToChat('gemini', data.answer);
+                } else {
+                    addMessageToChat('gemini', `*Bir hata oluştu (Sunucu yanıt vermedi)*`);
+                }
+            } catch (err) {
+                console.error(err);
+                addMessageToChat('gemini', `*Bağlantı hatası*`);
+            }
+
+            // Restore btn
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
+        }
+
+        function addMessageToChat(role, text, doScroll = true) {
+            const chatArea = document.getElementById('chatArea');
+            const initialNotice = chatArea.querySelector('div[style*="text-align:center"]');
+            if(initialNotice && role !== 'event') initialNotice.style.display = 'none';
+
+            const div = document.createElement('div');
+            
+            if (role === 'event') {
+                div.style.textAlign = 'center';
+                div.style.margin = '16px auto';
+                div.style.fontSize = '0.85rem';
+                div.style.color = '#6B7280';
+                div.style.background = '#F3F4F6';
+                div.style.padding = '6px 16px';
+                div.style.borderRadius = '20px';
+                div.style.display = 'inline-block';
+                div.innerHTML = `<i class="fa-solid fa-circle-info" style="margin-right: 6px;"></i> ${text}`;
+                
+                // wrapper to center inline-block
+                const wrapper = document.createElement('div');
+                wrapper.style.textAlign = 'center';
+                wrapper.appendChild(div);
+                chatArea.appendChild(wrapper);
+            } else {
+                div.className = `chat-message ${role === 'user' ? 'user' : 'bot'}-message`;
+
+                const icon = role === 'user' ? '<i class="fa-solid fa-user"></i>' : '<i class="fa-solid fa-robot"></i>';
+                const parsedText = marked.parse(text); 
+
+                div.innerHTML = `
+                    <div class="chat-avatar">${icon}</div>
+                    <div class="message-content">${parsedText}</div>
+                `;
+                chatArea.appendChild(div);
+            }
+
+            if(doScroll) scrollToBottom();
+        }
+
+        // --- Settings Management ---
+        async function openSettings() {
+            document.getElementById('settingsModal').style.display = 'flex';
+            document.getElementById('settingsStatus').style.display = 'none';
+            try {
+                const res = await fetch('/api/settings/GeminiApiKey');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('geminiKeyInput').value = data.value;
+                }
+            } catch(e) {}
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        async function saveSettings() {
+            const keyVal = document.getElementById('geminiKeyInput').value.trim();
+            if(!keyVal) return;
+            
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: 'GeminiApiKey', value: keyVal })
+                });
+                if(res.ok) {
+                    const status = document.getElementById('settingsStatus');
+                    status.style.display = 'block';
+                    setTimeout(() => { status.style.display = 'none'; }, 2000);
+                }
+            } catch(e) {}
+        }
+
+    </script>
+</body>
+</html>
