@@ -1,11 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Decisionman.Models
+namespace Decisionman.Models;
+
+public class SystemSetting
 {
-    public class SystemSetting
-    {
-        [Key]
-        public string Key { get; set; } = null!;
-        public string? Value { get; set; }
-    }
+    [Key]
+    public string Key { get; set; } = null!;
+    public string? Value { get; set; }
 }
